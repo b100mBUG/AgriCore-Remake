@@ -1,0 +1,45 @@
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# ── Database ───────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0.30
+asyncpg>=0.29.0           # async PostgreSQL driver
+aiosqlite>=0.20.0         # async SQLite (dev only)
+alembic>=1.13.0           # schema migrations
+
+# ── Validation ─────────────────────────────────────────────────────────────────
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# ── Caching ────────────────────────────────────────────────────────────────────
+redis[asyncio]>=5.0.0
+hiredis>=2.3.0            # faster redis protocol parser
+
+# ── Rate Limiting ──────────────────────────────────────────────────────────────
+slowapi>=0.1.9
+
+# ── Task Scheduling ────────────────────────────────────────────────────────────
+apscheduler>=3.10.0
+
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+google-genai>=1.0.0       # Gemini (weather insight only — classifier now uses Groq)
+openai>=1.30.0            # AsyncOpenAI client, used against Groq's OpenAI-compatible endpoint
+
+# ── HTTP Client ────────────────────────────────────────────────────────────────
+httpx>=0.27.0             # crawler + weather API calls
+
+# ── Web Crawling ───────────────────────────────────────────────────────────────
+beautifulsoup4>=4.12.0
+lxml>=5.2.0               # fast HTML parser for BS4
+
+# ── Image Storage ──────────────────────────────────────────────────────────────
+cloudinary>=1.40.0
+
+# ── Auth / Security ────────────────────────────────────────────────────────────
+bcrypt>=4.1.0             # password hashing (used directly, no passlib)
+python-jose[cryptography]>=3.3.0   # JWT tokens for admin auth
+python-multipart>=0.0.9   # form data + file uploads
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
