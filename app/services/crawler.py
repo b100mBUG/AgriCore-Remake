@@ -36,7 +36,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -178,15 +178,14 @@ async def _save_page(
 ) -> None:
     """Insert a new raw_content row.
 
-    Uses INSERT OR IGNORE for SQLite (upsert on url uniqueness constraint)
-    so concurrent crawler runs don't crash on the unique URL constraint.
+    Uses PostgreSQL ON CONFLICT DO NOTHING so concurrent crawler 
+    runs don't crash on the unique URL constraint.
     """
     content_hash = _sha256(body)
     domain = urlparse(url).netloc
 
-    # For SQLite we use sqlite_insert with on_conflict_do_nothing.
-    # For PostgreSQL, swap in the asyncpg equivalent if needed.
-    stmt = sqlite_insert(RawContent).values(
+    # Replaced sqlite_insert with pg_insert to fix compilation crash on Render
+    stmt = pg_insert(RawContent).values(
         url=url,
         source_domain=domain,
         title=title[:500] if title else None,
