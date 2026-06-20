@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 
     # Create tables in dev/SQLite — Alembic handles this in production
     if not settings.is_production:
-        await init_db()
+        #await init_db()
         log.info("Database tables initialised (dev mode).")
 
     # Start background jobs
