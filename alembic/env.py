@@ -1,51 +1,54 @@
-"""
-alembic/env.py — Alembic migration environment.
-
-Configured for async SQLAlchemy (asyncpg/aiosqlite).
-Alembic itself is synchronous, so we use run_sync to execute migrations.
-
-To create a new migration:
-    alembic revision --autogenerate -m "describe your change"
-
-To apply migrations:
-    alembic upgrade head
-
-To rollback one step:
-    alembic downgrade -1
-
-The target_metadata points to Base.metadata after all models are
-imported — this is what Alembic diffs against the live DB schema.
-"""
-
 import asyncio
+import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Import app config and Base (which pulls in all models via app/models/__init__.py)
-from app.core.config import settings
-from app.core.database import Base
-import app.models  # noqa: F401 — ensures all tables are in Base.metadata
+from alembic import context
 
-# ── Alembic config ────────────────────────────────────────────────────────────
+# Import your application's settings to load database URLs dynamically
+from app.core.config import settings
+
+# Import your declarative Base and all models to register metadata for autogenerate
+from app.core.database import Base
+from app.models.officer import ExtensionOfficer
+from app.models.solution_card import SolutionCard
+from app.models.card_view import CardView
+from app.models.raw_content import RawContent
+from app.models.input_ad import InputAd
+
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with our settings value so alembic.ini doesn't
-# need to contain secrets
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Fetch URL from environment variable or fallback to settings module
+db_url = os.environ.get("DATABASE_URL") or settings.database_url
 
-# Interpret the config file for Python logging
+if db_url:
+    # 1. Strip out any query parameters (?sslmode=...) to prevent driver conflicts
+    if "?" in db_url:
+        db_url = db_url.split("?")[0]
+
+    # 2. Normalize driver strings to asyncpg
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    
+    # Override the ini configuration value dynamically
+    config.set_main_option("sqlalchemy.url", db_url)
+
+# Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Set the target metadata for autogenerate detection
 target_metadata = Base.metadata
 
 
-# ── Offline mode (generates SQL without a DB connection) ──────────────────────
-
 def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -53,41 +56,50 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 
-# ── Online mode (connects to DB and applies migrations) ───────────────────────
-
 def do_run_migrations(connection):
+    """Synchronous helper context required to run migrations on the connection."""
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,       # detect column type changes
-        compare_server_default=True,
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    """Create an async engine and run migrations via run_sync."""
+async def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    
+    # Grab the current configuration section
+    section = config.get_section(config.config_ini_section, {})
+    
+    # 3. Explicitly pass a clean SSL context argument to the engine creator.
+    # This completely overrides the backend defaults and stops SQLAlchemy from injecting channel_binding.
+    connect_args = {
+        "ssl": "require"
+    }
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,   # no connection pooling for migrations
+        poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
+
     async with connectable.connect() as connection:
+        # Run the migrations inside the async connection block
         await connection.run_sync(do_run_migrations)
+
     await connectable.dispose()
 
 
-def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    # Run the online migration routine using the asyncio event loop
+    asyncio.run(run_migrations_online())
