@@ -11,6 +11,7 @@ alembic>=1.13.0           # schema migrations
 # ── Validation ─────────────────────────────────────────────────────────────────
 pydantic>=2.7.0
 pydantic-settings>=2.3.0
+pydantic[email]
 
 # ── Caching ────────────────────────────────────────────────────────────────────
 redis[asyncio]>=5.0.0
