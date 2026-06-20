@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
         log.info("Database tables initialised (dev mode).")
 
     # Start background jobs
-    #start_scheduler()
+    start_scheduler()
 
     yield   # ← App is live and serving requests here
 
