@@ -29,7 +29,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import settings
-from app.core.database import engine, init_db
+from app.core.database import engine
 from app.core.limiter import limiter
 from app.core.redis import close_redis
 from app.jobs.scheduler import start_scheduler, stop_scheduler
