@@ -16,11 +16,12 @@ because they run outside request context — see app/jobs/*.
 SQLite vs PostgreSQL
 ────────────────────
 connect_args differ between drivers:
-  asyncpg (Postgres) — ssl=True in production, nothing in dev
+  asyncpg (Postgres) — ssl="require" in production, nothing in dev
   aiosqlite (SQLite)  — check_same_thread not applicable for async,
                         but we skip ssl entirely
 """
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -50,19 +51,35 @@ class Base(DeclarativeBase):
 def _build_connect_args() -> dict:
     """Return driver-appropriate connect_args.
 
-    asyncpg needs ssl=True in production Postgres deployments (Supabase,
-    Neon, Render). aiosqlite ignores connect_args entirely so we pass {}.
+    asyncpg needs ssl="require" in production Postgres deployments (Neon, Render).
+    aiosqlite ignores connect_args entirely so we pass {}.
     """
     if settings.is_sqlite:
         return {}
     # PostgreSQL via asyncpg
     if settings.is_production:
-        return {"ssl": True}
+        return {"ssl": "require"}
     return {}
 
 
+# Sanitize the incoming database URL configuration string dynamically
+db_url = os.environ.get("DATABASE_URL") or settings.database_url
+
+if not settings.is_sqlite and db_url:
+    # 1. Chop off any trailing query string parameters (?sslmode=...)
+    # This prevents SQLAlchemy from unpacking 'sslmode' into asyncpg's connect handler
+    if "?" in db_url:
+        db_url = db_url.split("?")[0]
+        
+    # 2. Re-standardize the engine scheme protocol if Render gave you "postgres://"
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+
 engine = create_async_engine(
-    settings.database_url,
+    db_url,
     connect_args=_build_connect_args(),
     echo=not settings.is_production,   # log SQL in dev, silent in prod
     future=True,
@@ -101,8 +118,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
-
-
-# ── Table initialisation (dev/test only) ──────────────────────────────────────
-
-
